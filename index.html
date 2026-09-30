@@ -1,0 +1,1017 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0d0d0f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Salah Tracker">
+<title>Salah Tracker</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+<link rel="apple-touch-icon" href="icon.svg">
+<style>
+  :root {
+    --bg: #0d0d0f;
+    --bg2: #161619;
+    --bg3: #1e1e23;
+    --accent: #7c5cbf;
+    --accent-light: #9b7fd4;
+    --green: #4caf7d;
+    --yellow: #f0c040;
+    --orange: #e08040;
+    --red: #e05050;
+    --t1: #f0f0f5;
+    --t2: #a0a0b0;
+    --t3: #606070;
+    --border: #2a2a35;
+    --radius: 14px;
+    --card-pad: 14px 16px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { background: var(--bg); color: var(--t1); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 15px; min-height: 100dvh; display: flex; flex-direction: column; }
+  #app { flex: 1; overflow-y: auto; padding-bottom: 80px; }
+
+  /* NAV */
+  nav { position: fixed; bottom: 0; left: 0; right: 0; background: var(--bg2); border-top: 1px solid var(--border); display: flex; z-index: 100; padding-bottom: env(safe-area-inset-bottom); }
+  nav button { flex: 1; background: none; border: none; color: var(--t3); padding: 10px 4px 8px; display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; transition: color 0.2s; font-size: 10px; font-weight: 600; letter-spacing: 0.03em; }
+  nav button svg { width: 22px; height: 22px; }
+  nav button.active { color: var(--accent-light); }
+  nav button:active { opacity: 0.6; }
+
+  /* PAGE */
+  .page { display: none; padding: 16px; max-width: 480px; margin: 0 auto; }
+  .page.active { display: block; }
+  .page-title { font-size: 20px; font-weight: 700; color: var(--t1); margin-bottom: 16px; }
+
+  /* CARDS */
+  .card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: var(--card-pad); margin-bottom: 12px; }
+  .card-sm { background: var(--bg3); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; }
+
+  /* PRAYER CARD */
+  .prayer-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 10px; overflow: hidden; transition: border-color 0.2s; }
+  .prayer-card.status-ontime { border-left: 3px solid var(--green); }
+  .prayer-card.status-late { border-left: 3px solid var(--yellow); }
+  .prayer-card.status-qaza { border-left: 3px solid var(--orange); }
+  .prayer-card.status-missed { border-left: 3px solid var(--red); }
+  .prayer-header { display: flex; align-items: center; padding: 13px 14px; cursor: pointer; user-select: none; }
+  .prayer-header:active { background: var(--bg3); }
+  .prayer-name { font-weight: 700; font-size: 16px; flex: 1; }
+  .prayer-time { font-size: 12px; color: var(--t3); margin-right: 10px; }
+  .prayer-countdown { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 20px; margin-right: 8px; }
+  .countdown-soon { background: rgba(240,192,64,0.18); color: var(--yellow); }
+  .countdown-now { background: rgba(76,175,125,0.18); color: var(--green); }
+  .countdown-later { font-size: 11px; color: var(--t3); margin-right: 8px; }
+  .countdown-passed { font-size: 11px; color: var(--t3); margin-right: 8px; opacity: 0.45; }
+  .prayer-card.alert-overdue { border-left: 3px solid var(--red) !important; }
+  .status-badge { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 20px; margin-right: 8px; }
+  .badge-ontime { background: rgba(76,175,125,0.18); color: var(--green); }
+  .badge-late { background: rgba(240,192,64,0.18); color: var(--yellow); }
+  .badge-qaza { background: rgba(224,128,64,0.18); color: var(--orange); }
+  .badge-missed { background: rgba(224,80,80,0.18); color: var(--red); }
+  .badge-pending { background: rgba(124,92,191,0.18); color: var(--accent-light); }
+  .chevron { color: var(--t3); transition: transform 0.25s; font-size: 12px; }
+  .prayer-card.open .chevron { transform: rotate(180deg); }
+  .prayer-body { display: none; padding: 0 14px 14px; border-top: 1px solid var(--border); }
+  .prayer-card.open .prayer-body { display: block; }
+
+  /* RAKAT GROUPS */
+  .rakats-grid { display: flex; flex-direction: column; gap: 7px; margin: 12px 0; }
+  .rakat-row { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+  .rakat-row:active { opacity: 0.7; }
+  .rakat-cb { width: 20px; height: 20px; border-radius: 6px; border: 2px solid var(--border); background: var(--bg3); display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.15s; }
+  .rakat-row.checked .rakat-cb { background: var(--accent); border-color: var(--accent); }
+  .rakat-label { flex: 1; font-size: 14px; color: var(--t2); }
+  .rakat-row.checked .rakat-label { color: var(--t1); }
+  .rakat-type { font-size: 11px; color: var(--t3); font-weight: 600; padding: 2px 6px; border-radius: 4px; background: var(--bg3); }
+  .type-fard { color: #e8b96a; }
+  .type-sm { color: var(--accent-light); }
+  .type-sunnah { color: #7ab8d4; }
+  .type-nafl { color: var(--t3); }
+  .type-wajib { color: #c97ab4; }
+
+  /* STATUS SELECTOR */
+  .status-selector { display: flex; gap: 6px; margin: 10px 0; flex-wrap: wrap; }
+  .status-btn { flex: 1; min-width: 65px; padding: 7px 4px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg3); color: var(--t2); font-size: 12px; font-weight: 600; cursor: pointer; text-align: center; transition: all 0.15s; }
+  .status-btn:active { opacity: 0.7; }
+  .status-btn.sel-ontime { background: rgba(76,175,125,0.2); border-color: var(--green); color: var(--green); }
+  .status-btn.sel-late { background: rgba(240,192,64,0.2); border-color: var(--yellow); color: var(--yellow); }
+  .status-btn.sel-qaza { background: rgba(224,128,64,0.2); border-color: var(--orange); color: var(--orange); }
+  .status-btn.sel-missed { background: rgba(224,80,80,0.2); border-color: var(--red); color: var(--red); }
+
+  /* KHUSHOO */
+  .khushoo-row { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
+  .khushoo-label { font-size: 13px; color: var(--t2); flex: 1; }
+  .khushoo-stars { display: flex; gap: 4px; }
+  .star { font-size: 16px; color: var(--t3); cursor: pointer; transition: color 0.15s, transform 0.1s; }
+  .star.lit { color: var(--yellow); }
+  .star:active { transform: scale(1.3); }
+
+  /* NOTE */
+  .note-area { width: 100%; background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; color: var(--t1); padding: 8px 10px; font-size: 13px; resize: none; margin-top: 8px; font-family: inherit; }
+  .note-area:focus { outline: none; border-color: var(--accent); }
+  .monthly-review-area { min-height: 96px; line-height: 1.45; }
+  .monthly-review-meta { color: var(--t3); font-size: 12px; margin-top: 8px; }
+
+  /* PROGRESS BAR */
+  .progress-wrap { background: var(--bg3); border-radius: 20px; height: 6px; overflow: hidden; margin: 8px 0 4px; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-light)); border-radius: 20px; transition: width 0.4s ease; }
+  .progress-label { font-size: 12px; color: var(--t2); text-align: right; }
+
+  /* DATE HEADER */
+  .date-header { font-size: 13px; color: var(--t2); margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; }
+  .date-header span { font-size: 17px; font-weight: 700; color: var(--t1); }
+
+  /* HISTORY CALENDAR */
+  .cal-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .cal-nav-btn { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; color: var(--t1); padding: 6px 14px; cursor: pointer; font-size: 14px; }
+  .cal-nav-btn:active { opacity: 0.6; }
+  .cal-month-label { font-size: 16px; font-weight: 700; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 16px; }
+  .cal-day-name { text-align: center; font-size: 11px; color: var(--t3); font-weight: 600; padding: 4px 0; }
+  .cal-day { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; border-radius: 8px; font-size: 14px; cursor: pointer; transition: all 0.15s; border: 1px solid transparent; position: relative; }
+  .cal-day:active { opacity: 0.7; }
+  .cal-day.empty { cursor: default; }
+  .cal-day.today { border-color: var(--accent); color: var(--accent-light); font-weight: 700; }
+  .cal-day.selected { background: var(--accent); color: white; font-weight: 700; }
+  .cal-day .dot-row { position: absolute; bottom: 3px; left: 50%; transform: translateX(-50%); display: flex; gap: 2px; }
+  .cal-dot { width: 4px; height: 4px; border-radius: 50%; }
+
+  /* STATS */
+  .stat-section-title { font-size: 14px; font-weight: 700; color: var(--t2); margin: 16px 0 8px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .quality-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .quality-row:last-child { border-bottom: none; }
+  .quality-name { width: 64px; font-weight: 600; font-size: 14px; }
+  .quality-bar-wrap { flex: 1; }
+  .quality-bar { height: 6px; border-radius: 3px; background: var(--bg3); overflow: hidden; margin-bottom: 3px; }
+  .quality-bar-fill { height: 100%; border-radius: 3px; transition: width 0.5s ease; }
+  .quality-meta { font-size: 11px; color: var(--t3); }
+  .quality-tier { font-size: 16px; }
+  .streak-row { display: flex; align-items: center; gap: 8px; padding: 9px 0; border-bottom: 1px solid var(--border); }
+  .streak-row:last-child { border-bottom: none; }
+  .streak-name { width: 64px; font-size: 14px; font-weight: 600; }
+  .streak-val { font-size: 22px; font-weight: 800; color: var(--accent-light); width: 46px; }
+  .streak-best { font-size: 12px; color: var(--t3); }
+  .khushoo-table-wrap { overflow-x: auto; margin-top: 8px; }
+  .khushoo-table { border-collapse: collapse; min-width: 100%; font-size: 13px; }
+  .khushoo-table th { padding: 7px 10px; color: var(--t2); font-weight: 600; white-space: nowrap; text-align: center; border-bottom: 1px solid var(--border); }
+  .khushoo-table th:first-child { text-align: left; }
+  .khushoo-table td { padding: 8px 10px; text-align: center; border-bottom: 1px solid var(--border); color: var(--t2); }
+  .khushoo-table td:first-child { font-weight: 600; color: var(--t1); text-align: left; }
+  .khushoo-table .current-month { background: rgba(124,92,191,0.15); color: var(--accent-light) !important; font-weight: 700; }
+
+  /* QAZA */
+  .qaza-prayer-card { display: flex; align-items: center; gap: 10px; padding: 11px 14px; }
+  .qaza-name { flex: 1; font-weight: 600; }
+  .qaza-count-wrap { display: flex; align-items: center; gap: 6px; }
+  .qaza-count { font-size: 22px; font-weight: 800; color: var(--t1); min-width: 32px; text-align: center; }
+  .qaza-btn { width: 30px; height: 30px; border-radius: 8px; background: var(--bg3); border: 1px solid var(--border); color: var(--t1); font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .qaza-btn:active { background: var(--accent); border-color: var(--accent); }
+  .qaza-total-bar { display: flex; align-items: center; gap: 10px; margin: 12px 0 6px; }
+  .qaza-big-num { font-size: 36px; font-weight: 800; color: var(--accent-light); }
+  .qaza-big-label { font-size: 12px; color: var(--t3); }
+  .repay-input-row { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+  .repay-input { flex: 1; background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; color: var(--t1); padding: 9px 12px; font-size: 15px; font-family: inherit; }
+  .repay-input:focus { outline: none; border-color: var(--accent); }
+
+  .safar-badge { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; background: rgba(122,184,212,0.18); color: #7ab8d4; margin-right: 6px; }
+  .qaza-direct-input { width: 56px; background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; color: var(--t1); padding: 4px 6px; font-size: 16px; font-weight: 700; text-align: center; font-family: inherit; }
+  .qaza-direct-input:focus { outline: none; border-color: var(--accent); }
+  .qaza-title { display: flex; flex-direction: column; gap: 2px; }
+  .qaza-last-added { font-size: 11px; font-weight: 600; color: var(--t3); }
+  .qaza-sub-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .qaza-sub-row:last-child { border-bottom: none; }
+  .qaza-sub-label { flex: 1; font-size: 14px; color: var(--t2); }
+  .repay-select { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; color: var(--t1); padding: 9px 12px; font-size: 14px; font-family: inherit; flex: 1; }
+  .repay-select:focus { outline: none; border-color: var(--accent); }
+  .repay-hint { font-size: 12px; color: var(--t3); margin-top: 6px; }
+  .btn { padding: 10px 18px; border-radius: 10px; border: none; cursor: pointer; font-size: 14px; font-weight: 600; font-family: inherit; transition: all 0.15s; }
+  .btn:active { opacity: 0.7; transform: scale(0.97); }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-secondary { background: var(--bg3); border: 1px solid var(--border); color: var(--t1); }
+  .btn-danger { background: rgba(224,80,80,0.15); border: 1px solid var(--red); color: var(--red); }
+  .quick-log-btn { margin-bottom: 14px; }
+  .btn-full { width: 100%; }
+
+  /* SETTINGS */
+  .settings-section { margin-bottom: 20px; }
+  .settings-label { font-size: 12px; color: var(--t2); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+  .settings-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .settings-install-row { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 13px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+  .settings-install-title { font-weight: 700; font-size: 14px; }
+  .settings-install-sub { color: var(--t2); font-size: 12px; margin-top: 2px; line-height: 1.35; }
+  .settings-install-row.installed { opacity: 0.7; }
+  textarea.times-input { width: 100%; background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; color: var(--t1); padding: 10px 12px; font-size: 12px; font-family: monospace; resize: vertical; min-height: 100px; }
+  textarea.times-input:focus { outline: none; border-color: var(--accent); }
+
+  /* TOAST */
+  #toast { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--bg3); border: 1px solid var(--border); color: var(--t1); padding: 9px 18px; border-radius: 20px; font-size: 13px; font-weight: 600; opacity: 0; transition: all 0.3s; z-index: 200; pointer-events: none; white-space: nowrap; }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* LEGEND */
+  .legend { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--t2); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+  /* MODAL */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 300; display: flex; align-items: flex-end; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.25s; }
+  .modal-overlay.open { opacity: 1; pointer-events: all; }
+  .modal-box { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius) var(--radius) 0 0; padding: 20px; width: 100%; max-width: 480px; transform: translateY(30px); transition: transform 0.25s; max-height: 80dvh; overflow-y: auto; }
+  .modal-overlay.open .modal-box { transform: translateY(0); }
+  .modal-title { font-size: 17px; font-weight: 700; margin-bottom: 14px; }
+  .modal-actions { display: flex; gap: 8px; margin-top: 16px; }
+
+  /* CHARTS */
+  .chart-wrap { width: 100%; overflow: hidden; }
+  .chart-empty { text-align: center; color: var(--t3); padding: 20px; font-size: 13px; }
+
+  /* RANGE PILLS */
+  .range-pills { display: flex; gap: 5px; }
+  .range-pill { background: var(--bg3); border: 1px solid var(--border); border-radius: 20px; color: var(--t3); font-size: 11px; font-weight: 700; padding: 3px 10px; cursor: pointer; transition: all 0.15s; letter-spacing: 0.02em; }
+  .range-pill:active { opacity: 0.7; }
+  .range-pill.active { background: rgba(124,92,191,0.2); border-color: var(--accent); color: var(--accent-light); }
+
+
+  .divider { height: 1px; background: var(--border); margin: 10px 0; }
+  .empty-state { text-align: center; color: var(--t3); padding: 30px 20px; font-size: 14px; }
+  .tag { display: inline-block; font-size: 11px; padding: 2px 7px; border-radius: 4px; font-weight: 600; }
+  .section-header { font-size: 16px; font-weight: 700; margin: 0 0 10px; }
+
+  /* BACKUP MODAL */
+  #backup-modal .modal-box { border-radius: var(--radius); max-height: 90dvh; }
+  .backup-section-label { font-size: 11px; font-weight: 700; color: var(--t3); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 8px; }
+  .backup-textarea { width: 100%; background: var(--bg3); border: 1px solid var(--border); border-radius: 10px; color: var(--t1); padding: 12px; font-size: 12px; font-family: monospace; resize: none; height: 120px; display: block; }
+  .backup-textarea:focus { outline: none; border-color: var(--accent); }
+  .backup-btn-row { display: flex; gap: 8px; margin: 10px 0 6px; }
+  .backup-btn { flex: 1; padding: 13px 8px; border-radius: 10px; border: none; cursor: pointer; font-size: 14px; font-weight: 700; font-family: inherit; transition: all 0.15s; }
+  .backup-btn:active { opacity: 0.7; transform: scale(0.97); }
+  .backup-btn-import { background: linear-gradient(135deg, #4a2f8a, #2a2a6e); color: white; }
+  .backup-btn-copy { background: linear-gradient(135deg, #1e2a5a, #162244); color: white; }
+  .backup-file-row { display: flex; gap: 18px; padding: 4px 0; }
+  .backup-file-btn { display: flex; align-items: center; gap: 6px; background: none; border: none; color: var(--t3); font-size: 13px; font-family: inherit; cursor: pointer; padding: 4px 0; transition: color 0.15s; }
+  .backup-file-btn:active { opacity: 0.6; }
+  .backup-file-btn:hover { color: var(--t2); }
+  .backup-divider { height: 1px; background: var(--border); margin: 14px 0; }
+  .backup-close-row { display: flex; gap: 18px; align-items: center; padding-top: 4px; }
+  .backup-close-btn { background: none; border: none; color: var(--t3); font-size: 13px; font-family: inherit; cursor: pointer; padding: 4px 0; }
+  .backup-close-btn:active { opacity: 0.6; }
+  .rakat-row.miss-row.checked .rakat-cb{background:var(--red);border-color:var(--red);color:#fff}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="page active" id="page-qaza">
+    <div class="page-title">Qaza</div>
+    <div class="section-header" style="margin-bottom:6px;">Qaza Debt</div>
+    <div id="qaza-prayers-list"></div>
+    <div class="section-header" style="margin-top:14px;margin-bottom:6px;">Repay Qaza Today</div>
+    <div class="card">
+      <div class="repay-input-row">
+        <select class="repay-select" id="repay-prayer-select">
+          <option value="">— Which prayer? —</option>
+          <option value="Fajr">Fajr</option>
+          <option value="Dhuhr">Dhuhr</option>
+          <option value="Asr">Asr</option>
+          <option value="Maghrib">Maghrib</option>
+          <option value="Isha">Isha</option>
+        </select>
+        <input class="repay-input" type="number" min="1" max="999" placeholder="How many?" id="repay-count-input" style="max-width:90px;">
+        <button class="btn btn-primary" onclick="logRepayment()">Log</button>
+      </div>
+      <div class="repay-hint">Deducts from owed first, then safar</div>
+      <div style="margin-top:12px;" id="qaza-overall"></div>
+    </div>
+  </div>
+  <div class="page" id="page-calendar">
+    <div class="page-title">Calendar</div>
+    <div class="card">
+      <div class="cal-nav">
+        <button class="cal-nav-btn" onclick="calPrev()">‹</button>
+        <span class="cal-month-label" id="cal-month-label"></span>
+        <button class="cal-nav-btn" onclick="calNext()">›</button>
+      </div>
+      <div class="cal-grid" id="cal-grid"></div>
+      <div class="repay-hint" style="margin-top:8px;">Red dots = missed prayers. Tap a day to add or remove misses.</div>
+    </div>
+    <div id="history-day-view"></div>
+  </div>
+  <div class="page" id="page-stats">
+    <div class="page-title">Stats</div>
+    <div class="stat-section-title">Qaza-Free Streak</div>
+    <div class="card" id="stats-streak"></div>
+    <div class="stat-section-title">Qaza Repayment Trend</div>
+    <div class="card" style="padding:14px 10px"><div class="chart-wrap" id="chart-qaza-trend"></div></div>
+    <div class="stat-section-title">Qaza Repaid This Month</div>
+    <div class="card" style="text-align:center;padding:20px;">
+      <div class="qaza-big-num" id="stats-qaza-repaid">0</div>
+      <div class="qaza-big-label">prayers repaid this month</div>
+    </div>
+  </div>
+  <div class="page" id="page-settings">
+    <div class="page-title">Settings</div>
+    <div class="settings-section">
+      <div class="settings-label">Data</div>
+      <button class="btn btn-secondary btn-full" onclick="openBackupModal()">Import / Export</button>
+    </div>
+    <div class="settings-section">
+      <div class="settings-label">App</div>
+      <div class="settings-install-row" id="install-row">
+        <div>
+          <div class="settings-install-title" id="install-title">Install App</div>
+          <div class="settings-install-sub" id="install-sub">Add Salah Tracker to your home screen.</div>
+        </div>
+        <button class="btn btn-secondary" id="install-btn" onclick="installApp()">Install</button>
+      </div>
+    </div>
+    <div class="settings-section">
+      <div class="settings-label">Danger Zone</div>
+      <button class="btn btn-danger btn-full" onclick="confirmReset()">🗑 Reset All Data</button>
+    </div>
+    <div style="text-align:center;color:var(--t3);font-size:12px;margin-top:20px;">Qaza Tracker v2.0 · All data stored locally</div>
+  </div>
+</div>
+<nav>
+  <button class="active" onclick="showPage('qaza')" id="nav-qaza" aria-label="Qaza">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 6v6l4 2"/><path d="M18 2v6h6"/></svg>
+    Qaza
+  </button>
+  <button onclick="showPage('calendar')" id="nav-calendar" aria-label="Calendar">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+    Calendar
+  </button>
+  <button onclick="showPage('stats')" id="nav-stats" aria-label="Stats">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+    Stats
+  </button>
+  <button onclick="showPage('settings')" id="nav-settings" aria-label="Settings">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    Settings
+  </button>
+</nav>
+
+<div id="toast"></div>
+
+<!-- BACKUP MODAL -->
+<div class="modal-overlay" id="backup-modal" onclick="if(event.target===this)closeBackupModal()">
+  <div class="modal-box" style="border-radius:var(--radius) var(--radius) 0 0;">
+    <div class="modal-title">Export / Import</div>
+
+    <div class="backup-section-label">PRAYER DATA JSON</div>
+    <textarea class="backup-textarea" id="backup-data-textarea" readonly></textarea>
+    <div class="backup-btn-row">
+      <button class="backup-btn backup-btn-import" onclick="backupImportJSON('data')">Import JSON</button>
+      <button class="backup-btn backup-btn-copy" onclick="backupCopyJSON('data')">Copy</button>
+    </div>
+    <div class="backup-file-row">
+      <label class="backup-file-btn">
+        📁 Import File
+        <input type="file" accept=".json" style="display:none;" onchange="backupImportFile(event)">
+      </label>
+      <button class="backup-file-btn" onclick="backupDownloadFile()">💾 Download File</button>
+    </div>
+
+    <div class="backup-divider"></div>
+
+    <div class="backup-close-row">
+      <button class="backup-close-btn" onclick="closeBackupModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIRM MODAL -->
+<div class="modal-overlay" id="confirm-modal">
+  <div class="modal-box">
+    <div class="modal-title" id="confirm-title">Are you sure?</div>
+    <div id="confirm-body" style="color:var(--t2);font-size:14px;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" style="flex:1;" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-danger" style="flex:1;" id="confirm-ok-btn">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const PRAYERS = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"];
+let dataWarning = "";
+function buildDefaultData() {
+  const defaults = { prayer_log: {}, qaza_totals: {}, qaza_repayments: [], qaza_adds: [], prayer_times: {}, monthly_reviews: {} };
+  PRAYERS.forEach(p => { defaults.qaza_totals[p] = { owed: 0, safar: 0, lastAdded: "" }; });
+  return defaults;
+}
+function isPlainObject(value) {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+function cleanNumber(value) {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+function cleanDate(value) {
+  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : "";
+}
+function normalizeData(input) {
+  const defaults = buildDefaultData();
+  if (!isPlainObject(input)) return defaults;
+  const clean = {
+    prayer_log: isPlainObject(input.prayer_log) ? input.prayer_log : {},
+    qaza_totals: defaults.qaza_totals,
+    qaza_repayments: Array.isArray(input.qaza_repayments) ? input.qaza_repayments.filter(isPlainObject) : [],
+    qaza_adds: Array.isArray(input.qaza_adds) ? input.qaza_adds.filter(x => cleanDate(x)) : [],
+    prayer_times: isPlainObject(input.prayer_times) ? input.prayer_times : {},
+    monthly_reviews: isPlainObject(input.monthly_reviews) ? input.monthly_reviews : {}
+  };
+  if (isPlainObject(input.qaza_totals)) {
+    PRAYERS.forEach(p => {
+      const row = isPlainObject(input.qaza_totals[p]) ? input.qaza_totals[p] : {};
+      clean.qaza_totals[p] = { owed: cleanNumber(row.owed), safar: cleanNumber(row.safar), lastAdded: cleanDate(row.lastAdded) };
+    });
+  }
+  return clean;
+}
+function setDataWarning(msg) {
+  dataWarning = msg || "";
+  if (msg && typeof showToast === "function") showToast(msg);
+}
+function safeGetItem(key, label) {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    setDataWarning((label || key) + " could not be read. Browser storage may be blocked.");
+    return null;
+  }
+}
+function safeSetItem(key, value, label) {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch {
+    setDataWarning((label || key) + " could not be saved. Export a backup and free browser storage before changing more data.");
+    return false;
+  }
+}
+function safeRemoveItem(key, label) {
+  try {
+    localStorage.removeItem(key);
+    return true;
+  } catch {
+    setDataWarning((label || key) + " could not be removed. Browser storage may be blocked.");
+    return false;
+  }
+}
+function snapshotSafety(reason) {
+  try {
+    const raw = safeGetItem("salah_tracker_v1", "Salah data");
+    if (!raw) return;
+    const key = "salah_safety_" + Date.now();
+    safeSetItem(key, raw, "Safety copy");
+    safeSetItem("salah_safety_reason_" + key, reason || "safety copy", "Safety copy reason");
+  } catch {}
+}
+function loadData() {
+  try {
+    const raw = safeGetItem("salah_tracker_v1", "Salah data");
+    if (!raw) return buildDefaultData();
+    return normalizeData(JSON.parse(raw));
+  } catch {
+    try {
+      const raw = safeGetItem("salah_tracker_v1", "Salah data");
+      if (raw) safeSetItem("salah_corrupt_backup_" + Date.now(), raw, "Corrupt data recovery copy");
+    } catch {}
+    dataWarning = "Saved salah data could not be read. A recovery copy was kept if browser storage allowed it. Import a backup before adding new data.";
+    return buildDefaultData();
+  }
+}
+function saveData(d) {
+  const clean = normalizeData(d);
+  if (safeSetItem("salah_tracker_v1", JSON.stringify(clean), "Salah data")) {
+    DATA = clean;
+    return true;
+  }
+  return false;
+}
+let DATA = loadData();
+let deferredInstallPrompt = null;
+
+function fmtDate(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function todayKey(){return fmtDate(new Date());}
+function fmtDateLabel(d){return d.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});}
+function fmtTimeDDMM(k){const [y,m,d]=k.split('-');return d+'/'+m+'/'+y;}
+
+// ============================
+// TOAST
+// ============================
+let toastTimer;
+function haptic(type) {
+  if (!navigator.vibrate) return;
+  if (type === 'light') navigator.vibrate(8);
+  else if (type === 'medium') navigator.vibrate(20);
+  else if (type === 'success') navigator.vibrate([10, 30, 10]);
+}
+function showToastWithUndo(msg, undoCb) {
+  const t = document.getElementById('toast');
+  t.innerHTML = `${msg} <span id="toast-undo-btn" style="margin-left:10px;text-decoration:underline;cursor:pointer;color:var(--accent-light);">Undo</span>`;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 4000);
+  setTimeout(() => {
+    const btn = document.getElementById('toast-undo-btn');
+    if (btn) btn.onclick = () => { clearTimeout(toastTimer); t.classList.remove('show'); undoCb(); };
+  }, 50);
+}
+function checkBackupReminder() {
+  const last = parseInt(safeGetItem('salah_backup_reminder', 'Backup reminder')||'0');
+  if (Date.now()-last > 30*24*60*60*1000) {
+    setTimeout(()=>{ showToast('💾 Reminder: Export a backup of your data!'); safeSetItem('salah_backup_reminder',String(Date.now()), 'Backup reminder'); },3000);
+  }
+}
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("show"), 2500);
+}
+function copyText(text) {
+  if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text);
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.setAttribute('readonly', '');
+  ta.style.position = 'fixed';
+  ta.style.left = '-9999px';
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); return Promise.resolve(); }
+  catch (err) { return Promise.reject(err); }
+  finally { document.body.removeChild(ta); }
+}
+
+function renderToday(){ renderQaza(); renderCalendar(); }
+function showPage(name){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  document.getElementById('nav-'+name).classList.add('active');
+  if(name==='qaza')renderQaza();
+  if(name==='calendar')renderCalendar();
+  if(name==='stats')renderStats();
+  if(name==='settings')updateInstallUI();
+}
+function renderStats(){ renderStreak(); renderQazaTrendChart(); renderQazaRepaidThisMonth(); }
+
+// STREAK: consecutive days with no missed prayer and no qaza added
+function calcQazaStreaks(){
+  const t=todayKey(), adds=DATA.qaza_adds||[], breaks=new Set(adds);
+  const keys=Object.keys(DATA.prayer_log);
+  keys.forEach(k=>{ if(missedOn(k).length) breaks.add(k); });
+  const dates=keys.concat(adds).sort();
+  if(!dates.length) return null;
+  const it=new Date((dates[0]>t?t:dates[0])+'T12:00:00'), end=new Date(t+'T12:00:00');
+  let run=0, runStart=null, best={len:0,start:null,end:null};
+  while(it<=end){
+    const k=fmtDate(it);
+    if(breaks.has(k)){ run=0; runStart=null; }
+    else { if(!run) runStart=k; run++; if(run>=best.len) best={len:run,start:runStart,end:k}; }
+    it.setDate(it.getDate()+1);
+  }
+  return { current:run, currentStart:runStart, best };
+}
+function fmtShort(k){ return new Date(k+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}); }
+function renderStreak(){
+  const el=document.getElementById('stats-streak'), s=calcQazaStreaks();
+  if(!s){ el.innerHTML='<div class="chart-empty">No data yet</div>'; return; }
+  const unit=n=>n===1?'day':'days';
+  const cur=s.current?`Since ${fmtShort(s.currentStart)}`:'Broken today';
+  const b=s.best;
+  const range=b.len?(b.start===b.end?fmtShort(b.start):fmtShort(b.start)+' – '+fmtShort(b.end)):'—';
+  el.innerHTML=`
+    <div style="display:flex;gap:20px;justify-content:space-around;margin-bottom:10px;">
+      <div style="text-align:center;"><div class="qaza-big-num" style="color:var(--accent-light)">${s.current}</div><div class="qaza-big-label">Current ${unit(s.current)}</div><div class="repay-hint">${cur}</div></div>
+      <div style="text-align:center;"><div class="qaza-big-num" style="color:var(--green)">${b.len}</div><div class="qaza-big-label">Longest ${unit(b.len)}</div><div class="repay-hint">${range}</div></div>
+    </div>
+    <div class="repay-hint" style="text-align:center;">Days in a row with no missed prayer and no qaza added</div>`;
+}
+
+// CALENDAR: red dots = missed prayers; tap a day to toggle misses (adjusts qaza debt)
+let calYear,calMonth,selDate;
+function initCalendar(){const n=new Date();calYear=n.getFullYear();calMonth=n.getMonth();selDate=todayKey();}
+function missedOn(k){const l=DATA.prayer_log[k]||{};return PRAYERS.filter(p=>l[p]&&l[p].status==='missed');}
+function renderCalendar(){
+  document.getElementById('cal-month-label').textContent=new Date(calYear,calMonth,1).toLocaleDateString('en-GB',{month:'long',year:'numeric'});
+  const parts=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d=>`<div class="cal-day-name">${d}</div>`);
+  const startDow=(new Date(calYear,calMonth,1).getDay()+6)%7, days=new Date(calYear,calMonth+1,0).getDate(), t=todayKey();
+  for(let i=0;i<startDow;i++)parts.push('<div class="cal-day empty"></div>');
+  for(let d=1;d<=days;d++){
+    const key=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const m=missedOn(key).length;
+    const dots=m?`<div class="dot-row">${'<div class="cal-dot" style="background:var(--red)"></div>'.repeat(m)}</div>`:'';
+    parts.push(`<div class="cal-day${key===t?' today':''}${key===selDate?' selected':''}" onclick="selectDay('${key}')">${d}${dots}</div>`);
+  }
+  document.getElementById('cal-grid').innerHTML=parts.join('');
+  renderDay(selDate);
+}
+function calPrev(){calMonth--;if(calMonth<0){calMonth=11;calYear--;}renderCalendar();}
+function calNext(){calMonth++;if(calMonth>11){calMonth=0;calYear++;}renderCalendar();}
+function selectDay(k){selDate=k;renderCalendar();}
+function renderDay(k){
+  const c=document.getElementById('history-day-view');
+  c.innerHTML=`<div style="font-size:14px;font-weight:700;color:var(--t2);margin:14px 0 8px;">${fmtDateLabel(new Date(k+'T12:00:00'))}</div>`;
+  if(k>todayKey()){c.innerHTML+='<div class="repay-hint">Future date</div>';return;}
+  const box=document.createElement('div');box.className='rakats-grid';
+  PRAYERS.forEach(p=>{
+    const on=DATA.prayer_log[k]?.[p]?.status==='missed';
+    const row=document.createElement('div');
+    row.className='rakat-row miss-row'+(on?' checked':'');
+    row.innerHTML=`<div class="rakat-cb">${on?'✓':''}</div><span class="rakat-label">${p}</span><span class="rakat-type type-nafl">Missed</span>`;
+    row.onclick=()=>toggleMissed(k,p);
+    box.appendChild(row);
+  });
+  c.appendChild(box);
+  c.insertAdjacentHTML('beforeend','<div class="repay-hint" style="margin-top:6px;">Marking a miss adds 1 to that prayer\'s qaza debt; unmarking removes it.</div>');
+}
+function toggleMissed(k,p){
+  haptic('light');
+  if(!DATA.prayer_log[k])DATA.prayer_log[k]={};
+  const e=DATA.prayer_log[k][p]||(DATA.prayer_log[k][p]={status:null});
+  if(e.status==='missed'){e.status=null;adjustQazaDebt(p,'owed',-1,false);}
+  else{e.status='missed';adjustQazaDebt(p,'owed',1,true);}
+  saveData(DATA);
+  renderCalendar();
+}
+
+// ============================
+// QAZA PAGE
+// ============================
+function renderQaza() {
+  const list = document.getElementById("qaza-prayers-list");
+  list.innerHTML = "";
+  PRAYERS.forEach(p => list.appendChild(buildQazaCard(p)));
+  renderQazaOverall();
+}
+
+function buildQazaCard(prayer) {
+  const owed = DATA.qaza_totals[prayer]?.owed || 0;
+  const safar = DATA.qaza_totals[prayer]?.safar || 0;
+
+  const card = document.createElement("div");
+  card.className = "prayer-card";
+  card.id = `qaza-card-${prayer}`;
+
+  const hdr = document.createElement("div");
+  hdr.className = "prayer-header";
+  hdr.onclick = () => card.classList.toggle("open");
+  hdr.innerHTML = buildQazaCardHeader(prayer, owed, safar);
+  card.appendChild(hdr);
+
+  const body = document.createElement("div");
+  body.className = "prayer-body";
+  body.innerHTML = `
+    <div style="padding-top:4px;">
+      <div class="qaza-sub-row">
+        <span class="qaza-sub-label">Qaza Debt</span>
+        <button class="qaza-btn" onclick="adjustQaza('${prayer}','owed',-1)">−</button>
+        <input class="qaza-direct-input" type="number" min="0" id="qaza-input-${prayer}-owed" value="${owed}"
+          onchange="setQazaDirect('${prayer}','owed',this.value)" onclick="event.stopPropagation()">
+        <button class="qaza-btn" onclick="adjustQaza('${prayer}','owed',1)">+</button>
+      </div>
+      <div class="qaza-sub-row">
+        <span class="qaza-sub-label">✈ Safar Qaza</span>
+        <button class="qaza-btn" onclick="adjustQaza('${prayer}','safar',-1)">−</button>
+        <input class="qaza-direct-input" type="number" min="0" id="qaza-input-${prayer}-safar" value="${safar}"
+          onchange="setQazaDirect('${prayer}','safar',this.value)" onclick="event.stopPropagation()">
+        <button class="qaza-btn" onclick="adjustQaza('${prayer}','safar',1)">+</button>
+      </div>
+    </div>`;
+  card.appendChild(body);
+  return card;
+}
+
+function buildQazaCardHeader(prayer, owed, safar) {
+  const total = owed + safar;
+  const totalColor = total === 0 ? "var(--green)" : "var(--t1)";
+  const safarBadge = safar > 0 ? `<span class="safar-badge">✈ ${safar} Safar</span>` : "";
+  const lastAdded = DATA.qaza_totals[prayer]?.lastAdded;
+  const lastAddedText = lastAdded ? `Last added: ${fmtTimeDDMM(lastAdded)}` : "No qaza added yet";
+  return `
+    <span class="prayer-name qaza-title"><span>${prayer}</span><span class="qaza-last-added">${lastAddedText}</span></span>
+    ${safarBadge}
+    <span style="font-size:22px;font-weight:800;color:${totalColor};margin-right:8px;">${total}</span>
+    <span class="chevron">▼</span>`;
+}
+
+function refreshQazaCardHeader(prayer) {
+  const owed = DATA.qaza_totals[prayer]?.owed || 0;
+  const safar = DATA.qaza_totals[prayer]?.safar || 0;
+  const hdr = document.querySelector(`#qaza-card-${prayer} .prayer-header`);
+  if (hdr) hdr.innerHTML = buildQazaCardHeader(prayer, owed, safar);
+}
+
+function ensureQazaTotal(prayer) {
+  if (!DATA.qaza_totals[prayer]) DATA.qaza_totals[prayer] = { owed: 0, safar: 0, lastAdded: "" };
+  if (typeof DATA.qaza_totals[prayer].lastAdded !== "string") DATA.qaza_totals[prayer].lastAdded = "";
+  return DATA.qaza_totals[prayer];
+}
+
+function adjustQazaDebt(prayer, key, delta, markAdded) {
+  const total = ensureQazaTotal(prayer);
+  total[key] = Math.max(0, (total[key] || 0) + delta);
+  if (markAdded && delta > 0) total.lastAdded = todayKey();
+}
+
+function recordQazaAdd() {
+  const t = todayKey();
+  if (!Array.isArray(DATA.qaza_adds)) DATA.qaza_adds = [];
+  if (!DATA.qaza_adds.includes(t)) DATA.qaza_adds.push(t);
+}
+function adjustQaza(prayer, key, delta) {
+  if (delta > 0) recordQazaAdd();
+  adjustQazaDebt(prayer, key, delta, true);
+  saveData(DATA);
+  const input = document.getElementById(`qaza-input-${prayer}-${key}`);
+  if (input) input.value = DATA.qaza_totals[prayer][key];
+  refreshQazaCardHeader(prayer);
+  renderQazaOverall();
+}
+
+function setQazaDirect(prayer, key, rawVal) {
+  const val = Math.max(0, parseInt(rawVal) || 0);
+  const total = ensureQazaTotal(prayer);
+  if (val > (total[key] || 0)) { total.lastAdded = todayKey(); recordQazaAdd(); }
+  total[key] = val;
+  saveData(DATA);
+  const input = document.getElementById(`qaza-input-${prayer}-${key}`);
+  if (input) input.value = val;
+  refreshQazaCardHeader(prayer);
+  renderQazaOverall();
+}
+
+function logRepayment() {
+  const input = document.getElementById("repay-count-input");
+  const prayerSel = document.getElementById("repay-prayer-select").value;
+  const n = parseInt(input.value);
+  if (!prayerSel) { showToast("Select a prayer first"); return; }
+  if (!n || n < 1) { showToast("Enter a valid number"); return; }
+
+  DATA.qaza_repayments.push({ date: todayKey(), count: n, prayer: prayerSel });
+
+  // Deduct from owed first, then safar
+  ensureQazaTotal(prayerSel);
+  let remaining = n;
+  const fromOwed = Math.min(remaining, DATA.qaza_totals[prayerSel].owed);
+  DATA.qaza_totals[prayerSel].owed -= fromOwed;
+  remaining -= fromOwed;
+  if (remaining > 0) {
+    const fromSafar = Math.min(remaining, DATA.qaza_totals[prayerSel].safar);
+    DATA.qaza_totals[prayerSel].safar -= fromSafar;
+  }
+
+  saveData(DATA);
+  input.value = "";
+  document.getElementById("repay-prayer-select").value = "";
+  showToast(`Logged ${n} × ${prayerSel} repaid ✓`);
+  renderQaza();
+}
+
+function renderQazaOverall() {
+  const totalOwed = PRAYERS.reduce((s, p) => s + (DATA.qaza_totals[p]?.owed || 0) + (DATA.qaza_totals[p]?.safar || 0), 0);
+  const totalRepaid = DATA.qaza_repayments.reduce((s, r) => s + r.count, 0);
+  const pct = (totalOwed + totalRepaid) > 0 ? Math.min(100, totalRepaid / (totalOwed + totalRepaid) * 100) : 0;
+  document.getElementById("qaza-overall").innerHTML = `
+    <div style="display:flex;gap:20px;justify-content:space-around;margin-bottom:10px;">
+      <div style="text-align:center;"><div class="qaza-big-num">${totalOwed}</div><div class="qaza-big-label">Remaining</div></div>
+      <div style="text-align:center;"><div class="qaza-big-num" style="color:var(--green)">${totalRepaid}</div><div class="qaza-big-label">Total Repaid</div></div>
+    </div>
+    <div class="progress-wrap"><div class="progress-fill" style="width:${pct}%;background:linear-gradient(90deg,var(--green),var(--accent))"></div></div>
+    <div class="progress-label" style="margin-top:4px;">${pct.toFixed(0)}% repaid</div>`;
+}
+function getMonthsForRange(n) {
+  // n=0 means "all data"
+  const allDates = Object.keys(DATA.prayer_log).sort();
+  const now = new Date();
+  let startYear, startMonth;
+  if (n === 0 && allDates.length > 0) {
+    const earliest = new Date(allDates[0] + "T12:00:00");
+    startYear = earliest.getFullYear();
+    startMonth = earliest.getMonth();
+  } else {
+    const count = n || 6;
+    const d = new Date(now.getFullYear(), now.getMonth() - (count - 1), 1);
+    startYear = d.getFullYear();
+    startMonth = d.getMonth();
+  }
+  const months = [];
+  let y = startYear, m = startMonth;
+  while (y < now.getFullYear() || (y === now.getFullYear() && m <= now.getMonth())) {
+    const label = new Date(y, m, 1).toLocaleDateString("en-GB", { month: "short", year: "2-digit" });
+    months.push({ year: y, month: m, label });
+    m++; if (m > 11) { m = 0; y++; }
+  }
+  return months;
+}
+function renderQazaTrendChart() {
+  const el = document.getElementById('chart-qaza-trend');
+  if (!el) return;
+  const months = getMonthsForRange(6);
+  const data = months.map(({ year, month, label }) => {
+    const count = DATA.qaza_repayments.filter(r => { const d = new Date(r.date+'T12:00:00'); return d.getFullYear()===year && d.getMonth()===month; }).reduce((s,r)=>s+r.count,0);
+    return { label, count };
+  });
+  if (!data.some(d => d.count > 0)) { el.innerHTML = '<div class="chart-empty">No repayments yet</div>'; return; }
+  const maxVal = Math.max(...data.map(d=>d.count),1), W=320, H=120, pad={top:16,right:12,bottom:28,left:28};
+  const cW=W-pad.left-pad.right, cH=H-pad.top-pad.bottom, n=data.length, barW=(cW/n)*0.55, barGap=cW/n;
+  let bars='', xLabels='', grid='';
+  [0,Math.round(maxVal/2),maxVal].forEach(v=>{const y=+(cH-(v/maxVal)*cH).toFixed(1);grid+=`<line x1="0" y1="${y}" x2="${cW}" y2="${y}" stroke="#2a2a35" stroke-width="1"/><text x="-4" y="${y+4}" text-anchor="end" font-size="9" fill="#606070">${v}</text>`;});
+  data.forEach((d,i)=>{
+    const x=+(i*barGap+(barGap-barW)/2).toFixed(1), cx=+(i*barGap+barGap/2).toFixed(1);
+    const h2=Math.max(2,+((d.count/maxVal)*cH).toFixed(1)), y=+(cH-h2).toFixed(1);
+    bars+=`<rect x="${x}" y="${y}" width="${barW.toFixed(1)}" height="${h2}" fill="#4caf7d" rx="2"/>`;
+    if(d.count>0) bars+=`<text x="${cx}" y="${y-4}" text-anchor="middle" font-size="9" fill="#4caf7d" font-weight="700">${d.count}</text>`;
+    xLabels+=`<text x="${cx}" y="${cH+16}" text-anchor="middle" font-size="9" fill="#606070">${d.label}</text>`;
+  });
+  el.innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block;"><g transform="translate(${pad.left},${pad.top})">${grid}${bars}${xLabels}</g></svg>`;
+}
+function renderQazaRepaidThisMonth() {
+  const now = new Date();
+  const prefix = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
+  const total = DATA.qaza_repayments.filter(r => r.date.startsWith(prefix)).reduce((s, r) => s + r.count, 0);
+  document.getElementById("stats-qaza-repaid").textContent = total;
+}
+function openBackupModal() {
+  const textarea = document.getElementById('backup-data-textarea');
+  textarea.value = JSON.stringify(DATA, null, 2);
+  textarea.readOnly = true;
+  document.getElementById('backup-modal').classList.add('open');
+}
+function closeBackupModal() {
+  const textarea = document.getElementById('backup-data-textarea');
+  textarea.readOnly = true;
+  delete textarea.dataset.pendingImport;
+  document.getElementById('backup-modal').classList.remove('open');
+}
+function backupCopyJSON(type) {
+  const textarea = document.getElementById('backup-data-textarea');
+  copyText(textarea.value)
+    .then(() => {
+      safeSetItem('salah_backup_reminder', String(Date.now()), 'Backup reminder');
+      showToast("Copied to clipboard ✓");
+    })
+    .catch(() => showToast("Copy failed — select and copy manually"));
+}
+function backupImportJSON(type) {
+  const textarea = document.getElementById('backup-data-textarea');
+  if (!textarea.dataset.pendingImport) {
+    // First tap: unlock textarea for editing
+    textarea.readOnly = false;
+    textarea.dataset.pendingImport = "1";
+    textarea.select();
+    showToast("Paste your JSON, then tap Import JSON again");
+  } else {
+    // Second tap: attempt to parse and import
+    try {
+      const parsed = normalizeData(JSON.parse(textarea.value));
+      snapshotSafety("before pasted JSON import");
+      if (!saveData(parsed)) return;
+      delete textarea.dataset.pendingImport;
+      showToast("Data imported ✓");
+      renderToday();
+      closeBackupModal();
+    } catch { showToast("Invalid JSON — check and try again"); }
+  }
+}
+function backupDownloadFile() {
+  exportData();
+}
+function backupImportFile(event) {
+  importData(event, closeBackupModal);
+}
+function exportData() {
+  const blob = new Blob([JSON.stringify(DATA, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "salah_tracker_" + todayKey() + ".json";
+  a.click();
+  URL.revokeObjectURL(url);
+  safeSetItem('salah_backup_reminder', String(Date.now()), 'Backup reminder');
+  showToast("Data exported ✓");
+}
+function importData(event, onSuccess) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const parsed = normalizeData(JSON.parse(e.target.result));
+      snapshotSafety("before file import");
+      if (!saveData(parsed)) return;
+      showToast("Data imported ✓");
+      renderToday();
+      if (typeof onSuccess === "function") onSuccess();
+    } catch { showToast("Invalid JSON file"); }
+  };
+  reader.readAsText(file);
+  event.target.value = "";
+}
+function confirmReset() {
+  showConfirm("Reset All Data", "This will permanently delete all prayer logs, qaza records, and settings. This cannot be undone.", () => {
+    snapshotSafety("before reset");
+    if (!safeRemoveItem("salah_tracker_v1", "Salah data")) return;
+    DATA = loadData();
+    showToast("Data reset");
+    renderToday();
+  });
+}
+function isStandaloneApp() {
+  return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+}
+function updateInstallUI() {
+  const row = document.getElementById('install-row');
+  const title = document.getElementById('install-title');
+  const sub = document.getElementById('install-sub');
+  const btn = document.getElementById('install-btn');
+  if (!row || !title || !sub || !btn) return;
+  if (isStandaloneApp()) {
+    row.classList.add('installed');
+    title.textContent = 'Installed';
+    sub.textContent = 'Salah Tracker is running as an app on this device.';
+    btn.textContent = 'Done';
+    btn.disabled = true;
+  } else {
+    row.classList.remove('installed');
+    title.textContent = 'Install App';
+    sub.textContent = deferredInstallPrompt ? 'Ready to add to your home screen.' : 'Use Chrome menu > Add to Home screen if the prompt is unavailable.';
+    btn.textContent = deferredInstallPrompt ? 'Install' : 'Help';
+    btn.disabled = false;
+  }
+}
+function installApp() {
+  if (deferredInstallPrompt) {
+    const promptEvent = deferredInstallPrompt;
+    deferredInstallPrompt = null;
+    promptEvent.prompt();
+    promptEvent.userChoice
+      .then(choice => showToast(choice.outcome === 'accepted' ? 'Install started ✓' : 'Install dismissed'))
+      .finally(updateInstallUI);
+    return;
+  }
+  showToast('Use Chrome menu > Add to Home screen');
+}
+
+// ============================
+// MODAL
+// ============================
+let confirmCallback = null;
+function showConfirm(title, body, cb) {
+  confirmCallback = cb;
+  document.getElementById("confirm-title").textContent = title;
+  document.getElementById("confirm-body").textContent = body;
+  document.getElementById("confirm-modal").classList.add("open");
+}
+function closeModal() { document.getElementById("confirm-modal").classList.remove("open"); }
+document.getElementById("confirm-ok-btn").onclick = () => { closeModal(); if (confirmCallback) confirmCallback(); };
+document.getElementById("confirm-modal").addEventListener("click", e => { if (e.target === e.currentTarget) closeModal(); });
+
+// ============================
+// SERVICE WORKER
+// ============================
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  updateInstallUI();
+});
+window.addEventListener('appinstalled', () => {
+  deferredInstallPrompt = null;
+  showToast('Installed ✓');
+  updateInstallUI();
+});
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').then(reg => {
+      reg.addEventListener('updatefound', () => {
+        const worker = reg.installing;
+        if (!worker) return;
+        worker.addEventListener('statechange', () => {
+          if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+            showToast('Update ready after restart');
+          }
+        });
+      });
+    }).catch(() => {});
+  });
+}
+
+initCalendar();
+renderQaza();
+checkBackupReminder();
+if(!safeGetItem('salah_qaza_migrated','Migration flag')){snapshotSafety('before qaza-only version');safeSetItem('salah_qaza_migrated','1','Migration flag');}
+(function(){
+  let tx=0,ty=0;
+  document.addEventListener('touchstart',e=>{tx=e.touches[0].clientX;ty=e.touches[0].clientY;},{passive:true});
+  document.addEventListener('touchend',e=>{
+    if(!document.getElementById('page-calendar').classList.contains('active'))return;
+    const dx=e.changedTouches[0].clientX-tx,dy=e.changedTouches[0].clientY-ty;
+    if(Math.abs(dx)>50&&Math.abs(dx)>Math.abs(dy)*1.5){if(dx<0)calNext();else calPrev();}
+  },{passive:true});
+})();
+</script>
+</body>
+</html>
