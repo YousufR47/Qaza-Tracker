@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#0d0d0f"/>
+  <!-- 270-degree ring running counter-clockwise: "catching up" -->
+  <path d="M 256 112 A 144 144 0 1 0 400 256" fill="none" stroke="#7c5cbf" stroke-width="34" stroke-linecap="round"/>
+  <!-- arrowhead closing the gap -->
+  <polygon points="352,262 448,262 400,184" fill="#9b7fd4"/>
+  <!-- clock hands -->
+  <path d="M 256 256 L 256 188 M 256 256 L 308 286" fill="none" stroke="#9b7fd4" stroke-width="26" stroke-linecap="round"/>
+  <circle cx="256" cy="256" r="18" fill="#9b7fd4"/>
+</svg>
